@@ -1,5 +1,12 @@
-import { Text, View, StyleSheet, ImageBackground } from "react-native";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { router } from "expo-router";
+import {
+  ImageBackground,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const anthuriumImage = require("../../assets/images/anthurium.jpg");
 const demandImage = require("../../assets/images/demand.png");
@@ -10,16 +17,20 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <View style={styles.grid}>
-        <ImageBackground
-          source={anthuriumImage}
-          style={styles.card}
-          imageStyle={styles.cardImage}
+        <TouchableOpacity
+          onPress={() => router.push("/(features)/price-predict")}
         >
-          <View style={styles.overlay}>
-            <IconSymbol size={40} name="chart.bar.fill" color="#B22222" />
-            <Text style={styles.cardText}>Today's Market</Text>
-          </View>
-        </ImageBackground>
+          <ImageBackground
+            source={anthuriumImage}
+            style={styles.card}
+            imageStyle={styles.cardImage}
+          >
+            <View style={styles.overlay}>
+              <IconSymbol size={40} name="chart.bar.fill" color="#B22222" />
+              <Text style={styles.cardText}>Today's Market</Text>
+            </View>
+          </ImageBackground>
+        </TouchableOpacity>
 
         <ImageBackground
           source={priceImage}
