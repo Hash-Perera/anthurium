@@ -31,18 +31,13 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-        headerShown: true,
-        headerTitle: " ",
-        headerTitleStyle: { opacity: 0 },
-        headerBackground: () => (
-          <View style={{ backgroundColor: colors.tint, flex: 1 }} />
-        ),
+        headerShown: false,
         headerRight: () => <HeaderIcons />,
       }}
       // tabBar={(props) => <CustomTabBar {...props} />}
     >
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (

@@ -1,8 +1,77 @@
-import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { View, TouchableOpacity, StyleSheet } from "react-native";
-import { IconSymbol } from "./ui/icon-symbol";
+// import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+// import { View, TouchableOpacity, StyleSheet } from "react-native";
+// import { IconSymbol } from "./ui/icon-symbol";
+// import { Colors } from "@/constants/theme";
+// import { useColorScheme } from "@/hooks/use-color-scheme";
+
+// export function CustomTabBar({
+//   state,
+//   descriptors,
+//   navigation,
+// }: BottomTabBarProps) {
+//   const colorScheme = useColorScheme();
+//   const colors = Colors[colorScheme ?? "light"];
+
+//   const isHomeFocused = state.index === 0; // Assuming index is the first route
+
+//   return (
+//     <View style={styles.container}>
+//       <View style={styles.tabBar}>
+//         {state.routes.map((route, index) => {
+//           if (route.name === "index") return null; // Skip home, render separately
+
+//           const { options } = descriptors[route.key];
+//           const label = options.title || route.name;
+//           const isFocused = state.index === index;
+
+//           const onPress = () => {
+//             const event = navigation.emit({
+//               type: "tabPress",
+//               target: route.key,
+//               canPreventDefault: true,
+//             });
+
+//             if (!isFocused && !event.defaultPrevented) {
+//               navigation.navigate(route.name);
+//             }
+//           };
+
+//           return (
+//             <TouchableOpacity
+//               key={route.key}
+//               onPress={onPress}
+//               style={styles.tab}
+//             >
+//               {options.tabBarIcon &&
+//                 options.tabBarIcon({
+//                   focused: isFocused,
+//                   color: isFocused ? colors.tint : colors.tabIconDefault,
+//                   size: 28,
+//                 })}
+//               {/* Optionally add label */}
+//             </TouchableOpacity>
+//           );
+//         })}
+//       </View>
+//       {/* Floating Home Button */}
+//       <TouchableOpacity
+//         style={[
+//           styles.floatingButton,
+//           { backgroundColor: isHomeFocused ? colors.tint : "#ccc" },
+//         ]}
+//         onPress={() => navigation.navigate("index")}
+//       >
+//         <IconSymbol size={28} name="house.fill" color="white" />
+//       </TouchableOpacity>
+//     </View>
+//   );
+// }
+
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { IconSymbol } from "./ui/icon-symbol";
 
 export function CustomTabBar({
   state,
@@ -12,16 +81,19 @@ export function CustomTabBar({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
 
-  const isHomeFocused = state.index === 0; // Assuming index is the first route
+  const homeRouteIndex = state.routes.findIndex(
+    (route) => route.name === "home"
+  );
+  const isHomeFocused = state.index === homeRouteIndex;
 
   return (
     <View style={styles.container}>
       <View style={styles.tabBar}>
         {state.routes.map((route, index) => {
-          if (route.name === "index") return null; // Skip home, render separately
+          // ✅ Skip Home, render as floating button
+          if (route.name === "home") return null;
 
           const { options } = descriptors[route.key];
-          const label = options.title || route.name;
           const isFocused = state.index === index;
 
           const onPress = () => {
@@ -42,24 +114,23 @@ export function CustomTabBar({
               onPress={onPress}
               style={styles.tab}
             >
-              {options.tabBarIcon &&
-                options.tabBarIcon({
-                  focused: isFocused,
-                  color: isFocused ? colors.tint : colors.tabIconDefault,
-                  size: 28,
-                })}
-              {/* Optionally add label */}
+              {options.tabBarIcon?.({
+                focused: isFocused,
+                color: isFocused ? colors.tint : colors.tabIconDefault,
+                size: 28,
+              })}
             </TouchableOpacity>
           );
         })}
       </View>
+
       {/* Floating Home Button */}
       <TouchableOpacity
         style={[
           styles.floatingButton,
           { backgroundColor: isHomeFocused ? colors.tint : "#ccc" },
         ]}
-        onPress={() => navigation.navigate("index")}
+        onPress={() => navigation.navigate("home")}
       >
         <IconSymbol size={28} name="house.fill" color="white" />
       </TouchableOpacity>

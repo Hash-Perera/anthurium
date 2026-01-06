@@ -8,17 +8,17 @@ import {
   View,
 } from "react-native";
 
-const anthuriumImage = require("../../assets/images/anthurium.jpg");
-const demandImage = require("../../assets/images/demand.png");
-const marketImage = require("../../assets/images/market.png");
-const priceImage = require("../../assets/images/price.png");
+const anthuriumImage = require("../../../assets/images/anthurium.jpg");
+const demandImage = require("../../../assets/images/demand.png");
+const marketImage = require("../../../assets/images/market.png");
+const priceImage = require("../../../assets/images/price.png");
 
-export default function Index() {
+export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.grid}>
         <TouchableOpacity
-          onPress={() => router.push("/(features)/price-predict")}
+          onPress={() => router.push("/(tabs)/home/price-predict")}
         >
           <ImageBackground
             source={anthuriumImage}
@@ -35,6 +35,7 @@ export default function Index() {
         <ImageBackground
           source={priceImage}
           style={styles.card}
+          r
           imageStyle={styles.cardImage}
         >
           <View style={styles.overlay}>
