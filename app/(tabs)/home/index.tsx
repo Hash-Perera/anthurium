@@ -32,28 +32,35 @@ export default function HomeScreen() {
           </ImageBackground>
         </TouchableOpacity>
 
-        <ImageBackground
-          source={priceImage}
-          style={styles.card}
-          r
-          imageStyle={styles.cardImage}
+        <TouchableOpacity
+          onPress={() => router.push("/(tabs)/home/price-predict")}
         >
-          <View style={styles.overlay}>
-            <IconSymbol size={40} name="star.fill" color="#B22222" />
-            <Text style={styles.cardText}>Price Prediction</Text>
-          </View>
-        </ImageBackground>
+          <ImageBackground
+            source={priceImage}
+            style={styles.card}
+            imageStyle={styles.cardImage}
+          >
+            <View style={styles.overlay}>
+              <IconSymbol size={40} name="star.fill" color="#B22222" />
+              <Text style={styles.cardText}>Price Prediction</Text>
+            </View>
+          </ImageBackground>
+        </TouchableOpacity>
 
-        <ImageBackground
-          source={marketImage}
-          style={styles.card}
-          imageStyle={styles.cardImage}
+        <TouchableOpacity
+          onPress={() => router.push("/(tabs)/home/market-fluctuations")}
         >
-          <View style={styles.overlay}>
-            <IconSymbol size={40} name="waveform.path" color="#B22222" />
-            <Text style={styles.cardText}>Market Fluctuations</Text>
-          </View>
-        </ImageBackground>
+          <ImageBackground
+            source={marketImage}
+            style={styles.card}
+            imageStyle={styles.cardImage}
+          >
+            <View style={styles.overlay}>
+              <IconSymbol size={40} name="waveform.path" color="#B22222" />
+              <Text style={styles.cardText}>Market Fluctuations</Text>
+            </View>
+          </ImageBackground>
+        </TouchableOpacity>
 
         <ImageBackground
           source={demandImage}
