@@ -17,7 +17,7 @@ const CitySchema = Yup.object().shape({
   city: Yup.string().required("Please select an option"),
 });
 
-const cityOptions = [
+export const cityOptions = [
   { label: "Ampara", value: "Ampara" },
   { label: "Anuradhapura", value: "Anuradhapura" },
   { label: "Badulla", value: "Badulla" },
