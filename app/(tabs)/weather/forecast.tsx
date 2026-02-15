@@ -4,7 +4,13 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { get } from "@lib/api-client";
 import { Formik } from "formik";
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import * as Yup from "yup";
 
 const CitySchema = Yup.object().shape({
@@ -51,6 +57,7 @@ export default function ForecastScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
   const [forecast, setForecast] = useState<ForecastDay[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleCityChange = async (
     value: string,
@@ -58,6 +65,7 @@ export default function ForecastScreen() {
   ) => {
     console.log("City selected in DropdownField:", value);
     setFieldValue("city", value);
+    setIsLoading(true);
 
     try {
       const data = await get<ForecastDay[]>(
@@ -66,6 +74,8 @@ export default function ForecastScreen() {
       setForecast(data);
     } catch (error) {
       console.warn("Failed to fetch 7-day forecast:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -95,110 +105,121 @@ export default function ForecastScreen() {
           />
         )}
       </Formik>
-      <View style={styles.cardsSection}>
-        {forecast.map((day) => {
-          const weatherLower = day.weather.toLowerCase();
-          let accent = "#E88AA4";
-          let accentSoft = "rgba(232, 138, 164, 0.16)";
-          let icon = "⛅";
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="small" color={theme.tint} />
+            <Text style={[styles.loadingText, { color: theme.icon }]}>
+              Loading forecast...
+            </Text>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.cardsSection}>
+          {forecast.map((day) => {
+            const weatherLower = day.weather.toLowerCase();
+            let accent = "#E88AA4";
+            let accentSoft = "rgba(232, 138, 164, 0.16)";
+            let icon = "⛅";
 
-          if (weatherLower.includes("thunder")) {
-            accent = "#7F5AF0";
-            accentSoft = "rgba(127, 90, 240, 0.16)";
-            icon = "⚡";
-          } else if (
-            weatherLower.includes("rain") ||
-            weatherLower.includes("drizzle")
-          ) {
-            accent = "#4C8EDA";
-            accentSoft = "rgba(76, 142, 218, 0.16)";
-            icon = "🌧️";
-          } else if (weatherLower.includes("cloud")) {
-            accent = "#6A7F9B";
-            accentSoft = "rgba(106, 127, 155, 0.16)";
-            icon = "☁️";
-          } else if (
-            weatherLower.includes("clear") ||
-            weatherLower.includes("sun")
-          ) {
-            accent = "#F5A524";
-            accentSoft = "rgba(245, 165, 36, 0.16)";
-            icon = "☀️";
-          } else if (weatherLower.includes("snow")) {
-            accent = "#58B7D3";
-            accentSoft = "rgba(88, 183, 211, 0.16)";
-            icon = "❄️";
-          }
+            if (weatherLower.includes("thunder")) {
+              accent = "#7F5AF0";
+              accentSoft = "rgba(127, 90, 240, 0.16)";
+              icon = "⚡";
+            } else if (
+              weatherLower.includes("rain") ||
+              weatherLower.includes("drizzle")
+            ) {
+              accent = "#4C8EDA";
+              accentSoft = "rgba(76, 142, 218, 0.16)";
+              icon = "🌧️";
+            } else if (weatherLower.includes("cloud")) {
+              accent = "#6A7F9B";
+              accentSoft = "rgba(106, 127, 155, 0.16)";
+              icon = "☁️";
+            } else if (
+              weatherLower.includes("clear") ||
+              weatherLower.includes("sun")
+            ) {
+              accent = "#F5A524";
+              accentSoft = "rgba(245, 165, 36, 0.16)";
+              icon = "☀️";
+            } else if (weatherLower.includes("snow")) {
+              accent = "#58B7D3";
+              accentSoft = "rgba(88, 183, 211, 0.16)";
+              icon = "❄️";
+            }
 
-          return (
-            <View
-              key={day.date}
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.white,
-                  borderColor: theme.white,
-                },
-              ]}
-            >
-              <View style={[styles.cardHeaderRow]}>
-                <View
-                  style={[styles.cardIcon, { backgroundColor: accentSoft }]}
-                >
-                  <Text style={styles.cardIconText}>{icon}</Text>
+            return (
+              <View
+                key={day.date}
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: theme.white,
+                    borderColor: theme.white,
+                  },
+                ]}
+              >
+                <View style={[styles.cardHeaderRow]}>
+                  <View
+                    style={[styles.cardIcon, { backgroundColor: accentSoft }]}
+                  >
+                    <Text style={styles.cardIconText}>{icon}</Text>
+                  </View>
+                  <View style={styles.cardHeaderText}>
+                    <Text style={[styles.cardDate, { color: theme.text }]}>
+                      {day.date}
+                    </Text>
+                    <Text style={[styles.cardWeather, { color: theme.icon }]}>
+                      {day.weather}
+                    </Text>
+                  </View>
+                  <View
+                    style={[styles.tempPill, { backgroundColor: accentSoft }]}
+                  >
+                    <Text style={[styles.tempPillText, { color: accent }]}>
+                      {Math.round(day.temp_max)}°
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.cardHeaderText}>
-                  <Text style={[styles.cardDate, { color: theme.text }]}>
-                    {day.date}
+                <View style={styles.cardRow}>
+                  <Text style={[styles.cardLabel, { color: theme.icon }]}>
+                    Max
                   </Text>
-                  <Text style={[styles.cardWeather, { color: theme.icon }]}>
-                    {day.weather}
-                  </Text>
-                </View>
-                <View
-                  style={[styles.tempPill, { backgroundColor: accentSoft }]}
-                >
-                  <Text style={[styles.tempPillText, { color: accent }]}>
-                    {Math.round(day.temp_max)}°
+                  <Text style={[styles.cardValue, { color: theme.text }]}>
+                    {day.temp_max.toFixed(1)}°C
                   </Text>
                 </View>
+                <View style={styles.cardRow}>
+                  <Text style={[styles.cardLabel, { color: theme.icon }]}>
+                    Min
+                  </Text>
+                  <Text style={[styles.cardValue, { color: theme.text }]}>
+                    {day.temp_min.toFixed(1)}°C
+                  </Text>
+                </View>
+                <View style={styles.cardRow}>
+                  <Text style={[styles.cardLabel, { color: theme.icon }]}>
+                    Humidity
+                  </Text>
+                  <Text style={[styles.cardValue, { color: theme.text }]}>
+                    {day.humidity}%
+                  </Text>
+                </View>
+                <View style={styles.cardRow}>
+                  <Text style={[styles.cardLabel, { color: theme.icon }]}>
+                    Wind
+                  </Text>
+                  <Text style={[styles.cardValue, { color: theme.text }]}>
+                    {day.wind_speed.toFixed(1)} m/s
+                  </Text>
+                </View>
               </View>
-              <View style={styles.cardRow}>
-                <Text style={[styles.cardLabel, { color: theme.icon }]}>
-                  Max
-                </Text>
-                <Text style={[styles.cardValue, { color: theme.text }]}>
-                  {day.temp_max.toFixed(1)}°C
-                </Text>
-              </View>
-              <View style={styles.cardRow}>
-                <Text style={[styles.cardLabel, { color: theme.icon }]}>
-                  Min
-                </Text>
-                <Text style={[styles.cardValue, { color: theme.text }]}>
-                  {day.temp_min.toFixed(1)}°C
-                </Text>
-              </View>
-              <View style={styles.cardRow}>
-                <Text style={[styles.cardLabel, { color: theme.icon }]}>
-                  Humidity
-                </Text>
-                <Text style={[styles.cardValue, { color: theme.text }]}>
-                  {day.humidity}%
-                </Text>
-              </View>
-              <View style={styles.cardRow}>
-                <Text style={[styles.cardLabel, { color: theme.icon }]}>
-                  Wind
-                </Text>
-                <Text style={[styles.cardValue, { color: theme.text }]}>
-                  {day.wind_speed.toFixed(1)} m/s
-                </Text>
-              </View>
-            </View>
-          );
-        })}
-      </View>
+            );
+          })}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -232,6 +253,23 @@ const styles = StyleSheet.create({
   cardsSection: {
     marginTop: 20,
     gap: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 320,
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginTop: 16,
+  },
+  loadingText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
   card: {
     borderRadius: 16,
