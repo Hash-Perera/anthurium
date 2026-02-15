@@ -1,6 +1,7 @@
 import DropdownField from "@/components/form/Dropdown";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { get } from "@lib/api-client";
 import { Formik } from "formik";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -29,7 +30,6 @@ const cityOptions = [
   { label: "Matale", value: "Matale" },
   { label: "Matara", value: "Matara" },
   { label: "Monaragala", value: "Monaragala" },
-  { label: "Mullaitivu", value: "Mullaitivu" },
   { label: "Nuwara Eliya", value: "Nuwara Eliya" },
   { label: "Polonnaruwa", value: "Polonnaruwa" },
   { label: "Puttalam", value: "Puttalam" },
@@ -41,6 +41,23 @@ const cityOptions = [
 export default function ForecastScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
+
+  const handleCityChange = async (
+    value: string,
+    setFieldValue: (field: string, value: string) => void,
+  ) => {
+    console.log("City selected in DropdownField:", value);
+    setFieldValue("city", value);
+
+    try {
+      const data = await get<unknown>(
+        `/7-day?city=${encodeURIComponent(value)}`,
+      );
+      console.log("7-day forecast:", data);
+    } catch (error) {
+      console.warn("Failed to fetch 7-day forecast:", error);
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -59,10 +76,9 @@ export default function ForecastScreen() {
             placeholder="Select a city"
             options={cityOptions}
             error={touched.city ? errors.city : undefined}
-            onChangeSelect={(value: string) => {
-              console.log("City selected in DropdownField:", value);
-              setFieldValue("city", value);
-            }}
+            onChangeSelect={(value: string) =>
+              handleCityChange(value, setFieldValue)
+            }
           />
         )}
       </Formik>

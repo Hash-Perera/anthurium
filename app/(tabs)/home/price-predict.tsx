@@ -328,7 +328,7 @@ export default function PricePredict() {
               >
                 <Text>{item}</Text>
               </TouchableOpacity>
-            )
+            ),
           )}
         </View>
       )}
