@@ -18,24 +18,80 @@ function handleRegistrationError(errorMessage: string) {
   throw new Error(errorMessage);
 }
 
-async function sendPushNotification(expoPushToken: string) {
-  const message = {
-    to: expoPushToken,
-    sound: "default",
-    title: "Watering Reminder",
-    body: "Time to water your Anthurium. Check today's schedule.",
-    data: { type: "watering_reminder" },
-  };
+type WateringSchedule = {
+  city: string;
+  watering_level: string;
+  watering_frequency_per_day: number;
+  watering_time: string;
+  water_amount: string;
+};
 
-  await fetch("https://exp.host/--/api/v2/push/send", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Accept-encoding": "gzip, deflate",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(message),
-  });
+const HARDCODED_SCHEDULES: WateringSchedule[] = [
+  {
+    city: "Badulla",
+    watering_level: "High",
+    watering_frequency_per_day: 2,
+    watering_time: "00:00 & 00:01",
+    water_amount: "400ml + 300ml",
+  },
+  {
+    city: "Colombo",
+    watering_level: "Medium",
+    watering_frequency_per_day: 1,
+    watering_time: "00:05",
+    water_amount: "350ml",
+  },
+  {
+    city: "Kandy",
+    watering_level: "High",
+    watering_frequency_per_day: 2,
+    watering_time: "00:06 & 00:07",
+    water_amount: "400ml + 350ml",
+  },
+];
+
+const parseWateringTimes = (wateringTime: string) => {
+  const times = wateringTime.split(/&|,/).map((time) => time.trim());
+  return times
+    .map((time) => {
+      const match = time.match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) {
+        return null;
+      }
+      const hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (Number.isNaN(hour) || Number.isNaN(minute)) {
+        return null;
+      }
+      return { hour, minute };
+    })
+    .filter((time): time is { hour: number; minute: number } => !!time);
+};
+
+async function scheduleWateringReminders(schedule: WateringSchedule) {
+  await Notifications.cancelAllScheduledNotificationsAsync();
+  const times = parseWateringTimes(schedule.watering_time);
+
+  await Promise.all(
+    times.map(({ hour, minute }) =>
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Watering Reminder",
+          body: `Time to water in ${schedule.city}. Amount: ${schedule.water_amount}.`,
+          data: {
+            type: "watering_reminder",
+            city: schedule.city,
+            watering_level: schedule.watering_level,
+          },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour,
+          minute,
+        },
+      }),
+    ),
+  );
 }
 
 async function registerForPushNotificationsAsync() {
@@ -84,6 +140,8 @@ async function registerForPushNotificationsAsync() {
 
 export default function AlertsScreen() {
   const [expoPushToken, setExpoPushToken] = useState("");
+  const [wateringSchedule, setWateringSchedule] =
+    useState<WateringSchedule | null>(null);
   const [notification, setNotification] = useState<
     Notifications.Notification | undefined
   >(undefined);
@@ -92,6 +150,21 @@ export default function AlertsScreen() {
     registerForPushNotificationsAsync()
       .then((token) => setExpoPushToken(token ?? ""))
       .catch((error: any) => setExpoPushToken(`${error}`));
+
+    const loadSchedule = async () => {
+      try {
+        await Promise.all(
+          HARDCODED_SCHEDULES.map((schedule) =>
+            scheduleWateringReminders(schedule),
+          ),
+        );
+        setWateringSchedule(HARDCODED_SCHEDULES[0]);
+      } catch (error) {
+        console.warn("Failed to load watering schedule:", error);
+      }
+    };
+
+    loadSchedule();
 
     const notificationListener = Notifications.addNotificationReceivedListener(
       (notification) => {
@@ -124,21 +197,12 @@ export default function AlertsScreen() {
           justifyContent: "space-around",
         }}
       >
-        {/* <Text>Your Expo push token: {expoPushToken}</Text>
-        <View style={{ alignItems: "center", justifyContent: "center" }}>
-          <Text>
-            Title: {notification && notification.request.content.title}
-          </Text>
-          <Text>Body: {notification && notification.request.content.body}</Text>
-          <Text>
-            Data:
-            {notification && JSON.stringify(notification.request.content.data)}
-          </Text>
-        </View> */}
         <Button
-          title="Press to Send Notification"
+          title="Reschedule Watering Reminder"
           onPress={async () => {
-            await sendPushNotification(expoPushToken);
+            if (wateringSchedule) {
+              await scheduleWateringReminders(wateringSchedule);
+            }
           }}
         />
       </View>
