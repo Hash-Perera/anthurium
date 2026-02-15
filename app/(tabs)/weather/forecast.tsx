@@ -63,7 +63,6 @@ export default function ForecastScreen() {
     value: string,
     setFieldValue: (field: string, value: string) => void,
   ) => {
-    console.log("City selected in DropdownField:", value);
     setFieldValue("city", value);
     setIsLoading(true);
 
