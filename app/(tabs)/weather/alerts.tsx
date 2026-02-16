@@ -1,6 +1,7 @@
 import DropdownField from "@/components/form/Dropdown";
 import { Ionicons } from "@expo/vector-icons";
 import { get } from "@lib/api-client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
@@ -52,47 +53,16 @@ type WateringSchedule = {
   water_amount: string;
 };
 
-const HARDCODED_SCHEDULES: WateringSchedule[] = [
-  {
-    city: "Badulla",
-    watering_level: "High",
-    watering_frequency_per_day: 2,
-    watering_time: "00:00 & 00:01",
-    water_amount: "400ml + 300ml",
-    weather: {
-      temperature_c: 0,
-      humidity_pct: 0,
-      rainfall_mm: 0,
-      wind_kmph: 0,
-    },
-  },
-  {
-    city: "Colombo",
-    watering_level: "Medium",
-    watering_frequency_per_day: 1,
-    watering_time: "00:05",
-    water_amount: "350ml",
-    weather: {
-      temperature_c: 0,
-      humidity_pct: 0,
-      rainfall_mm: 0,
-      wind_kmph: 0,
-    },
-  },
-  {
-    city: "Kandy",
-    watering_level: "High",
-    watering_frequency_per_day: 2,
-    watering_time: "00:06 & 00:07",
-    water_amount: "400ml + 350ml",
-    weather: {
-      temperature_c: 0,
-      humidity_pct: 0,
-      rainfall_mm: 0,
-      wind_kmph: 0,
-    },
-  },
-];
+type ReminderEntry = {
+  id: string;
+  city: string;
+  time: string;
+  amount: string;
+  watering_level: string;
+  notification_id: string;
+};
+
+const REMINDER_STORAGE_KEY = "watering_reminders";
 
 const parseWateringTimes = (wateringTime: string) => {
   const times = wateringTime.split(/&|,/).map((time) => time.trim());
@@ -112,31 +82,11 @@ const parseWateringTimes = (wateringTime: string) => {
     .filter((time): time is { hour: number; minute: number } => !!time);
 };
 
-async function scheduleWateringReminders(schedule: WateringSchedule) {
-  await Notifications.cancelAllScheduledNotificationsAsync();
-  const times = parseWateringTimes(schedule.watering_time);
-
-  await Promise.all(
-    times.map(({ hour, minute }) =>
-      Notifications.scheduleNotificationAsync({
-        content: {
-          title: "Watering Reminder",
-          body: `Time to water in ${schedule.city}. Amount: ${schedule.water_amount}.`,
-          data: {
-            type: "watering_reminder",
-            city: schedule.city,
-            watering_level: schedule.watering_level,
-          },
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour,
-          minute,
-        },
-      }),
-    ),
-  );
-}
+const parseWateringAmounts = (wateringAmount: string) =>
+  wateringAmount
+    .split(/&|,|\+/)
+    .map((amount) => amount.trim())
+    .filter((amount) => amount.length > 0);
 
 async function registerForPushNotificationsAsync() {
   if (Platform.OS === "android") {
@@ -186,51 +136,31 @@ export default function AlertsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
   const [expoPushToken, setExpoPushToken] = useState("");
-  // const [wateringSchedule, setWateringSchedule] =
-  //   useState<WateringSchedule | null>(null);
-  const [notification, setNotification] = useState<
-    Notifications.Notification | undefined
-  >(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [wateringData, setWateringData] = useState<WateringSchedule | null>(
     null,
   );
+  const [reminderList, setReminderList] = useState<ReminderEntry[]>([]);
 
   useEffect(() => {
     registerForPushNotificationsAsync()
       .then((token) => setExpoPushToken(token ?? ""))
       .catch((error: any) => setExpoPushToken(`${error}`));
+  }, []);
 
-    const loadSchedule = async () => {
+  useEffect(() => {
+    const loadReminders = async () => {
       try {
-        await Promise.all(
-          HARDCODED_SCHEDULES.map((schedule) =>
-            scheduleWateringReminders(schedule),
-          ),
-        );
-        // setWateringSchedule(HARDCODED_SCHEDULES[0]);
+        const stored = await AsyncStorage.getItem(REMINDER_STORAGE_KEY);
+        if (stored) {
+          setReminderList(JSON.parse(stored) as ReminderEntry[]);
+        }
       } catch (error) {
-        console.warn("Failed to load watering schedule:", error);
+        console.warn("Failed to load reminders:", error);
       }
     };
 
-    loadSchedule();
-
-    const notificationListener = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        setNotification(notification);
-      },
-    );
-
-    const responseListener =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        console.log(response);
-      });
-
-    return () => {
-      notificationListener.remove();
-      responseListener.remove();
-    };
+    loadReminders();
   }, []);
 
   const handleCityChange = async (
@@ -249,6 +179,65 @@ export default function AlertsScreen() {
       console.warn("Failed to fetch watering recommendation:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const addToReminderList = async () => {
+    if (!wateringData) {
+      return;
+    }
+
+    const times = parseWateringTimes(wateringData.watering_time);
+    const amounts = parseWateringAmounts(wateringData.water_amount);
+
+    if (times.length === 0) {
+      console.warn("No valid watering times to schedule.");
+      return;
+    }
+
+    try {
+      const newEntries: ReminderEntry[] = [];
+
+      for (let index = 0; index < times.length; index += 1) {
+        const { hour, minute } = times[index];
+
+        const amount = amounts[index] ?? wateringData.water_amount;
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Watering Reminder",
+            body: `Time to water in ${wateringData.city}. Amount: ${amount}.`,
+            data: {
+              type: "watering_reminder",
+              city: wateringData.city,
+              watering_level: wateringData.watering_level,
+            },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour,
+            minute,
+          },
+        });
+
+        newEntries.push({
+          id: `${wateringData.city}-${hour}-${minute}-${Date.now()}-${index}`,
+          city: wateringData.city,
+          time: `${String(hour).padStart(2, "0")}:${String(minute).padStart(
+            2,
+            "0",
+          )}`,
+          amount,
+          watering_level: wateringData.watering_level,
+          notification_id: notificationId,
+        });
+      }
+
+      const updated = [...reminderList, ...newEntries];
+      setReminderList(updated);
+      await AsyncStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(updated));
+      setWateringData(null);
+    } catch (error) {
+      console.warn("Failed to add watering reminders:", error);
     }
   };
 
@@ -313,7 +302,7 @@ export default function AlertsScreen() {
                   styles.notificationButton,
                   { backgroundColor: `${theme.tint}1A` },
                 ]}
-                onPress={() => console.log("Added to notification list")}
+                onPress={addToReminderList}
               >
                 <Ionicons
                   name="notifications-outline"
@@ -466,6 +455,36 @@ export default function AlertsScreen() {
             </View>
           </View>
         )
+      )}
+      {reminderList.length > 0 && (
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.background,
+              borderColor: theme.tint,
+            },
+          ]}
+        >
+          <View style={styles.sectionRow}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Notification List
+            </Text>
+          </View>
+          {reminderList.map((item) => (
+            <View key={item.id} style={styles.reminderRow}>
+              <View style={styles.reminderInfo}>
+                <Text style={[styles.reminderTitle, { color: theme.text }]}>
+                  {item.city} - {item.time}
+                </Text>
+                <Text style={[styles.reminderMeta, { color: theme.icon }]}>
+                  {item.watering_level} · {item.amount}
+                </Text>
+              </View>
+              <Ionicons name="notifications" size={16} color={theme.tint} />
+            </View>
+          ))}
+        </View>
       )}
     </ScrollView>
     // <View style={styles.container}>
@@ -620,5 +639,25 @@ const styles = StyleSheet.create({
   notificationButton: {
     padding: 6,
     borderRadius: 999,
+  },
+  reminderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E8E8E8",
+  },
+  reminderInfo: {
+    flex: 1,
+  },
+  reminderTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  reminderMeta: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: "600",
   },
 });
