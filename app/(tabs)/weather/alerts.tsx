@@ -290,7 +290,6 @@ export default function AlertsScreen() {
               },
             ]}
           >
-            {/* <View style={styles.cardAccent} /> */}
             <View style={styles.sectionRow}>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>
                 Weather
@@ -298,6 +297,10 @@ export default function AlertsScreen() {
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Add to notification list"
+                style={[
+                  styles.notificationButton,
+                  { backgroundColor: `${theme.tint}1A` },
+                ]}
                 onPress={() => console.log("Added to notification list")}
               >
                 <Ionicons
@@ -601,5 +604,9 @@ const styles = StyleSheet.create({
   wateringValue: {
     fontSize: 13,
     fontWeight: "600",
+  },
+  notificationButton: {
+    padding: 6,
+    borderRadius: 999,
   },
 });
