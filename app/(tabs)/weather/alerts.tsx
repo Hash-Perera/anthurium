@@ -24,20 +24,6 @@ const CitySchema = Yup.object().shape({
   city: Yup.string().required("Please select an option"),
 });
 
-type WateringData = {
-  city: string;
-  weather: {
-    temperature_c: number;
-    humidity_pct: number;
-    rainfall_mm: number;
-    wind_kmph: number;
-  };
-  watering_level: string;
-  watering_frequency_per_day: number;
-  watering_time: string;
-  water_amount: string;
-};
-
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,
@@ -54,6 +40,12 @@ function handleRegistrationError(errorMessage: string) {
 
 type WateringSchedule = {
   city: string;
+  weather: {
+    temperature_c: number;
+    humidity_pct: number;
+    rainfall_mm: number;
+    wind_kmph: number;
+  };
   watering_level: string;
   watering_frequency_per_day: number;
   watering_time: string;
@@ -67,6 +59,12 @@ const HARDCODED_SCHEDULES: WateringSchedule[] = [
     watering_frequency_per_day: 2,
     watering_time: "00:00 & 00:01",
     water_amount: "400ml + 300ml",
+    weather: {
+      temperature_c: 0,
+      humidity_pct: 0,
+      rainfall_mm: 0,
+      wind_kmph: 0,
+    },
   },
   {
     city: "Colombo",
@@ -74,6 +72,12 @@ const HARDCODED_SCHEDULES: WateringSchedule[] = [
     watering_frequency_per_day: 1,
     watering_time: "00:05",
     water_amount: "350ml",
+    weather: {
+      temperature_c: 0,
+      humidity_pct: 0,
+      rainfall_mm: 0,
+      wind_kmph: 0,
+    },
   },
   {
     city: "Kandy",
@@ -81,6 +85,12 @@ const HARDCODED_SCHEDULES: WateringSchedule[] = [
     watering_frequency_per_day: 2,
     watering_time: "00:06 & 00:07",
     water_amount: "400ml + 350ml",
+    weather: {
+      temperature_c: 0,
+      humidity_pct: 0,
+      rainfall_mm: 0,
+      wind_kmph: 0,
+    },
   },
 ];
 
@@ -176,13 +186,15 @@ export default function AlertsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
   const [expoPushToken, setExpoPushToken] = useState("");
-  const [wateringSchedule, setWateringSchedule] =
-    useState<WateringSchedule | null>(null);
+  // const [wateringSchedule, setWateringSchedule] =
+  //   useState<WateringSchedule | null>(null);
   const [notification, setNotification] = useState<
     Notifications.Notification | undefined
   >(undefined);
   const [isLoading, setIsLoading] = useState(false);
-  const [wateringData, setWateringData] = useState<WateringData | null>(null);
+  const [wateringData, setWateringData] = useState<WateringSchedule | null>(
+    null,
+  );
 
   useEffect(() => {
     registerForPushNotificationsAsync()
@@ -196,7 +208,7 @@ export default function AlertsScreen() {
             scheduleWateringReminders(schedule),
           ),
         );
-        setWateringSchedule(HARDCODED_SCHEDULES[0]);
+        // setWateringSchedule(HARDCODED_SCHEDULES[0]);
       } catch (error) {
         console.warn("Failed to load watering schedule:", error);
       }
@@ -229,7 +241,7 @@ export default function AlertsScreen() {
     setIsLoading(true);
 
     try {
-      const data = await get<WateringData>(
+      const data = await get<WateringSchedule>(
         `watering/recommendation?city=${encodeURIComponent(value)}`,
       );
       setWateringData(data);
