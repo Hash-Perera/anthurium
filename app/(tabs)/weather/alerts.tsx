@@ -241,6 +241,36 @@ export default function AlertsScreen() {
     }
   };
 
+  const clearAllReminders = async () => {
+    try {
+      await Promise.all(
+        reminderList.map((item) =>
+          Notifications.cancelScheduledNotificationAsync(item.notification_id),
+        ),
+      );
+      setReminderList([]);
+      await AsyncStorage.removeItem(REMINDER_STORAGE_KEY);
+    } catch (error) {
+      console.warn("Failed to clear reminders:", error);
+    }
+  };
+
+  const deleteReminder = async (id: string) => {
+    try {
+      const reminder = reminderList.find((item) => item.id === id);
+      if (reminder) {
+        await Notifications.cancelScheduledNotificationAsync(
+          reminder.notification_id,
+        );
+      }
+      const updated = reminderList.filter((item) => item.id !== id);
+      setReminderList(updated);
+      await AsyncStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.warn("Failed to delete reminder:", error);
+    }
+  };
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.background }]}
@@ -470,6 +500,17 @@ export default function AlertsScreen() {
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
               Notification List
             </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Clear all reminders"
+              style={[
+                styles.clearButton,
+                { backgroundColor: "rgba(232, 138, 164, 0.16)" },
+              ]}
+              onPress={clearAllReminders}
+            >
+              <Ionicons name="trash-outline" size={18} color="#E88AA4" />
+            </TouchableOpacity>
           </View>
           {reminderList.map((item) => (
             <View key={item.id} style={styles.reminderRow}>
@@ -481,35 +522,21 @@ export default function AlertsScreen() {
                   {item.watering_level} · {item.amount}
                 </Text>
               </View>
-              <Ionicons name="notifications" size={16} color={theme.tint} />
+              <View style={styles.reminderActions}>
+                <Ionicons name="notifications" size={16} color={theme.tint} />
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete reminder"
+                  onPress={() => deleteReminder(item.id)}
+                >
+                  <Ionicons name="trash-outline" size={16} color="#E88AA4" />
+                </TouchableOpacity>
+              </View>
             </View>
           ))}
         </View>
       )}
     </ScrollView>
-    // <View style={styles.container}>
-    //   <Text style={styles.title}>Alerts</Text>
-    //   <Text style={styles.body}>
-    //     No alerts for your plants. Check back later!
-    //   </Text>
-
-    //   <View
-    //     style={{
-    //       flex: 1,
-    //       alignItems: "center",
-    //       justifyContent: "space-around",
-    //     }}
-    //   >
-    //     <Button
-    //       title="Reschedule Watering Reminder"
-    //       onPress={async () => {
-    //         if (wateringSchedule) {
-    //           await scheduleWateringReminders(wateringSchedule);
-    //         }
-    //       }}
-    //     />
-    //   </View>
-    // </View>
   );
 }
 
@@ -640,6 +667,10 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 999,
   },
+  clearButton: {
+    padding: 6,
+    borderRadius: 999,
+  },
   reminderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -650,6 +681,11 @@ const styles = StyleSheet.create({
   },
   reminderInfo: {
     flex: 1,
+  },
+  reminderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   reminderTitle: {
     fontSize: 13,

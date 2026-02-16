@@ -172,7 +172,7 @@ export default function WeatherScreen() {
         ))}
       </View>
 
-      <View
+      {/* <View
         style={{
           flex: 1,
           alignItems: "center",
@@ -308,7 +308,7 @@ export default function WeatherScreen() {
             </View>
           </View>
         </View>
-      </View>
+      </View> */}
     </View>
   );
 }
