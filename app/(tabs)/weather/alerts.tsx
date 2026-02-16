@@ -1,25 +1,45 @@
 import DropdownField from "@/components/form/Dropdown";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import { Ionicons } from "@expo/vector-icons";
 import { get } from "@lib/api-client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
 import { Formik } from "formik";
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
+  useColorScheme,
   View,
 } from "react-native";
 import * as Yup from "yup";
+import { Colors } from "../../../app-example/constants/theme";
 import { cityOptions } from "./forecast";
 
 const CitySchema = Yup.object().shape({
   city: Yup.string().required("Please select an option"),
 });
 
-type WateringData = {
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+function handleRegistrationError(errorMessage: string) {
+  alert(errorMessage);
+  throw new Error(errorMessage);
+}
+
+type WateringSchedule = {
   city: string;
   weather: {
     temperature_c: number;
@@ -33,11 +53,115 @@ type WateringData = {
   water_amount: string;
 };
 
-export default function WateringScreen() {
+type ReminderEntry = {
+  id: string;
+  city: string;
+  time: string;
+  amount: string;
+  watering_level: string;
+  notification_id: string;
+};
+
+const REMINDER_STORAGE_KEY = "watering_reminders";
+
+const parseWateringTimes = (wateringTime: string) => {
+  const times = wateringTime.split(/&|,/).map((time) => time.trim());
+  return times
+    .map((time) => {
+      const match = time.match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) {
+        return null;
+      }
+      const hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (Number.isNaN(hour) || Number.isNaN(minute)) {
+        return null;
+      }
+      return { hour, minute };
+    })
+    .filter((time): time is { hour: number; minute: number } => !!time);
+};
+
+const parseWateringAmounts = (wateringAmount: string) =>
+  wateringAmount
+    .split(/&|,|\+/)
+    .map((amount) => amount.trim())
+    .filter((amount) => amount.length > 0);
+
+async function registerForPushNotificationsAsync() {
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#FF231F7C",
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== "granted") {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== "granted") {
+      handleRegistrationError(
+        "Permission not granted to get push token for push notification!",
+      );
+      return;
+    }
+    const projectId =
+      Constants?.expoConfig?.extra?.eas?.projectId ??
+      Constants?.easConfig?.projectId;
+    if (!projectId) {
+      handleRegistrationError("Project ID not found");
+    }
+    try {
+      const pushTokenString = (await Notifications.getExpoPushTokenAsync())
+        .data;
+
+      console.log(pushTokenString);
+      return pushTokenString;
+    } catch (e: unknown) {
+      handleRegistrationError(`${e}`);
+    }
+  } else {
+    handleRegistrationError("Must use physical device for push notifications");
+  }
+}
+
+export default function AlertsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
-  const [wateringData, setWateringData] = useState<WateringData | null>(null);
+  const [expoPushToken, setExpoPushToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [wateringData, setWateringData] = useState<WateringSchedule | null>(
+    null,
+  );
+  const [reminderList, setReminderList] = useState<ReminderEntry[]>([]);
+
+  useEffect(() => {
+    registerForPushNotificationsAsync()
+      .then((token) => setExpoPushToken(token ?? ""))
+      .catch((error: any) => setExpoPushToken(`${error}`));
+  }, []);
+
+  useEffect(() => {
+    const loadReminders = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(REMINDER_STORAGE_KEY);
+        if (stored) {
+          setReminderList(JSON.parse(stored) as ReminderEntry[]);
+        }
+      } catch (error) {
+        console.warn("Failed to load reminders:", error);
+      }
+    };
+
+    loadReminders();
+  }, []);
 
   const handleCityChange = async (
     value: string,
@@ -47,7 +171,7 @@ export default function WateringScreen() {
     setIsLoading(true);
 
     try {
-      const data = await get<WateringData>(
+      const data = await get<WateringSchedule>(
         `watering/recommendation?city=${encodeURIComponent(value)}`,
       );
       setWateringData(data);
@@ -55,6 +179,95 @@ export default function WateringScreen() {
       console.warn("Failed to fetch watering recommendation:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const addToReminderList = async () => {
+    if (!wateringData) {
+      return;
+    }
+
+    const times = parseWateringTimes(wateringData.watering_time);
+    const amounts = parseWateringAmounts(wateringData.water_amount);
+
+    if (times.length === 0) {
+      console.warn("No valid watering times to schedule.");
+      return;
+    }
+
+    try {
+      const newEntries: ReminderEntry[] = [];
+
+      for (let index = 0; index < times.length; index += 1) {
+        const { hour, minute } = times[index];
+
+        const amount = amounts[index] ?? wateringData.water_amount;
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Watering Reminder",
+            body: `Time to water in ${wateringData.city}. Amount: ${amount}.`,
+            data: {
+              type: "watering_reminder",
+              city: wateringData.city,
+              watering_level: wateringData.watering_level,
+            },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour,
+            minute,
+          },
+        });
+
+        newEntries.push({
+          id: `${wateringData.city}-${hour}-${minute}-${Date.now()}-${index}`,
+          city: wateringData.city,
+          time: `${String(hour).padStart(2, "0")}:${String(minute).padStart(
+            2,
+            "0",
+          )}`,
+          amount,
+          watering_level: wateringData.watering_level,
+          notification_id: notificationId,
+        });
+      }
+
+      const updated = [...reminderList, ...newEntries];
+      setReminderList(updated);
+      await AsyncStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(updated));
+      setWateringData(null);
+    } catch (error) {
+      console.warn("Failed to add watering reminders:", error);
+    }
+  };
+
+  const clearAllReminders = async () => {
+    try {
+      await Promise.all(
+        reminderList.map((item) =>
+          Notifications.cancelScheduledNotificationAsync(item.notification_id),
+        ),
+      );
+      setReminderList([]);
+      await AsyncStorage.removeItem(REMINDER_STORAGE_KEY);
+    } catch (error) {
+      console.warn("Failed to clear reminders:", error);
+    }
+  };
+
+  const deleteReminder = async (id: string) => {
+    try {
+      const reminder = reminderList.find((item) => item.id === id);
+      if (reminder) {
+        await Notifications.cancelScheduledNotificationAsync(
+          reminder.notification_id,
+        );
+      }
+      const updated = reminderList.filter((item) => item.id !== id);
+      setReminderList(updated);
+      await AsyncStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.warn("Failed to delete reminder:", error);
     }
   };
 
@@ -103,16 +316,30 @@ export default function WateringScreen() {
             style={[
               styles.card,
               {
-                backgroundColor: theme.white,
+                backgroundColor: theme.background,
                 borderColor: theme.tint,
               },
             ]}
           >
-            {/* <View style={styles.cardAccent} /> */}
             <View style={styles.sectionRow}>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>
                 Weather
               </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Add to notification list"
+                style={[
+                  styles.notificationButton,
+                  { backgroundColor: `${theme.tint}1A` },
+                ]}
+                onPress={addToReminderList}
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={24}
+                  color={theme.tint}
+                />
+              </TouchableOpacity>
             </View>
             <View style={styles.weatherGrid}>
               <View style={styles.weatherItem}>
@@ -259,6 +486,56 @@ export default function WateringScreen() {
           </View>
         )
       )}
+      {reminderList.length > 0 && (
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.background,
+              borderColor: theme.tint,
+            },
+          ]}
+        >
+          <View style={styles.sectionRow}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Notification List
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Clear all reminders"
+              style={[
+                styles.clearButton,
+                { backgroundColor: "rgba(232, 138, 164, 0.16)" },
+              ]}
+              onPress={clearAllReminders}
+            >
+              <Ionicons name="trash-outline" size={18} color="#E88AA4" />
+            </TouchableOpacity>
+          </View>
+          {reminderList.map((item) => (
+            <View key={item.id} style={styles.reminderRow}>
+              <View style={styles.reminderInfo}>
+                <Text style={[styles.reminderTitle, { color: theme.text }]}>
+                  {item.city} - {item.time}
+                </Text>
+                <Text style={[styles.reminderMeta, { color: theme.icon }]}>
+                  {item.watering_level} · {item.amount}
+                </Text>
+              </View>
+              <View style={styles.reminderActions}>
+                <Ionicons name="notifications" size={16} color={theme.tint} />
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete reminder"
+                  onPress={() => deleteReminder(item.id)}
+                >
+                  <Ionicons name="trash-outline" size={16} color="#E88AA4" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -279,12 +556,13 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontWeight: "600",
-    marginBottom: 16,
+    marginBottom: 18,
   },
   body: {
     fontSize: 14,
     lineHeight: 20,
   },
+
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -318,7 +596,11 @@ const styles = StyleSheet.create({
   },
   sectionRow: {
     marginBottom: 16,
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexDirection: "row",
   },
+
   sectionTitle: {
     fontSize: 14,
     fontWeight: "700",
@@ -330,7 +612,6 @@ const styles = StyleSheet.create({
   },
   weatherItem: {
     flex: 1,
-    minWidth: "45%",
     alignItems: "center",
   },
   weatherIconBox: {
@@ -380,6 +661,39 @@ const styles = StyleSheet.create({
   },
   wateringValue: {
     fontSize: 13,
+    fontWeight: "600",
+  },
+  notificationButton: {
+    padding: 6,
+    borderRadius: 999,
+  },
+  clearButton: {
+    padding: 6,
+    borderRadius: 999,
+  },
+  reminderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E8E8E8",
+  },
+  reminderInfo: {
+    flex: 1,
+  },
+  reminderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  reminderTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  reminderMeta: {
+    marginTop: 4,
+    fontSize: 11,
     fontWeight: "600",
   },
 });

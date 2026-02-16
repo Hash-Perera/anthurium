@@ -31,6 +31,12 @@ const cards: Card[] = [
     icon: "sparkles",
     route: "/(tabs)/weather/insights",
   },
+  {
+    title: "Alerts",
+    subtitle: "Notifications",
+    icon: "bell.fill",
+    route: "/(tabs)/weather/alerts",
+  },
 ];
 
 const hexToRgba = (hex: string, alpha: number) => {
@@ -166,7 +172,7 @@ export default function WeatherScreen() {
         ))}
       </View>
 
-      <View
+      {/* <View
         style={{
           flex: 1,
           alignItems: "center",
@@ -302,7 +308,7 @@ export default function WeatherScreen() {
             </View>
           </View>
         </View>
-      </View>
+      </View> */}
     </View>
   );
 }
@@ -334,6 +340,8 @@ const styles = StyleSheet.create({
   cardGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 12,
   },
   card: {
     width: "31%",
