@@ -22,7 +22,7 @@ export default function useStackHeaderOptions() {
     headerShown: true,
     headerTitle: "",
     headerStyle: { backgroundColor: colors.tint },
-    headerTintColor: colors.white,
+    headerTintColor: colors.transparent,
     headerRight: () => <HeaderIcons />,
   };
 }

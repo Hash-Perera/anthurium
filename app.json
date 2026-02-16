@@ -4,7 +4,7 @@
     "slug": "Anthurium",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/anthurium-splash2.png",
     "scheme": "Anthurium",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -27,6 +27,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {
@@ -38,11 +39,19 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "01d55a73-3cfe-42e3-8289-f7ae439c3e39"
+      }
+    },
+    "owner": "hash_1"
   }
 }
