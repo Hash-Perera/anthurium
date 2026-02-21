@@ -1,7 +1,7 @@
 import DropdownField from "@/components/form/Dropdown";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { get } from "@lib/api-client";
+import { get, Service } from "@lib/api-client";
 import { Formik } from "formik";
 import React, { useState } from "react";
 import {
@@ -68,11 +68,12 @@ export default function ForecastScreen() {
 
     try {
       const data = await get<ForecastDay[]>(
+        Service.WEATHER,
         `weather/7-day?city=${encodeURIComponent(value)}`,
       );
       setForecast(data);
     } catch (error) {
-      console.warn("Failed to fetch 7-day forecast:", error);
+      console.error("Failed to fetch 7-day forecast:", error);
     } finally {
       setIsLoading(false);
     }

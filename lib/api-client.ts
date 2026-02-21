@@ -5,13 +5,33 @@ type RequestOptions = {
   signal?: AbortSignal;
 };
 
-const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
+enum Service {
+  WEATHER = "WEATHER",
+  SOIL = "SOIL",
+  DISEASE = "DISEASE",
+  MARKET = "MARKET",
+  ROOT = "ROOT",
+}
 
-const joinUrl = (path: string) => {
+const getBaseUrl = (service: Service): string => {
+  const baseUrls: Record<Service, string> = {
+    [Service.WEATHER]: process.env.EXPO_PUBLIC_API_BASE_URL_WEATHER ?? "",
+    [Service.SOIL]: process.env.EXPO_PUBLIC_API_BASE_URL_SOIL ?? "",
+    [Service.DISEASE]: process.env.EXPO_PUBLIC_API_BASE_URL_DISEASE ?? "",
+    [Service.MARKET]: process.env.EXPO_PUBLIC_API_BASE_URL_MARKET ?? "",
+    [Service.ROOT]: process.env.EXPO_PUBLIC_API_BASE_URL_ROOT ?? "",
+  };
+
+  const baseUrl = baseUrls[service];
   if (!baseUrl) {
-    throw new Error("Missing EXPO_PUBLIC_API_BASE_URL in .env");
+    throw new Error(`Missing EXPO_PUBLIC_API_BASE_URL_${service} in .env`);
   }
 
+  return baseUrl;
+};
+
+const joinUrl = (service: Service, path: string) => {
+  const baseUrl = getBaseUrl(service);
   const trimmedBase = baseUrl.replace(/\/+$/, "");
   const trimmedPath = path.replace(/^\/+/, "");
   return `${trimmedBase}/${trimmedPath}`;
@@ -31,10 +51,12 @@ const parseJsonSafely = async (response: Response) => {
 };
 
 export const apiRequest = async <T>(
+  service: Service,
   path: string,
   options: RequestOptions = {},
 ) => {
-  const url = joinUrl(path);
+  const url = joinUrl(service, path);
+  console.log(`[API] ${service} - ${url}`);
   const method = options.method ?? (options.body ? "POST" : "GET");
   const headers = {
     "Content-Type": "application/json",
@@ -73,12 +95,17 @@ export const apiRequest = async <T>(
 };
 
 export const get = <T>(
+  service: Service,
   path: string,
   options?: Omit<RequestOptions, "method" | "body">,
-) => apiRequest<T>(path, { ...options, method: "GET" });
+) => apiRequest<T>(service, path, { ...options, method: "GET" });
 
 export const post = <T>(
+  service: Service,
   path: string,
   body?: unknown,
   options?: Omit<RequestOptions, "method">,
-) => apiRequest<T>(path, { ...options, method: "POST", body });
+) => apiRequest<T>(service, path, { ...options, method: "POST", body });
+
+export { Service };
+

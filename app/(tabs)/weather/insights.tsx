@@ -2,7 +2,7 @@ import DropdownField from "@/components/form/Dropdown";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { Ionicons } from "@expo/vector-icons";
-import { get } from "@lib/api-client";
+import { get, Service } from "@lib/api-client";
 import { Formik } from "formik";
 import React, { useState } from "react";
 import {
@@ -44,6 +44,7 @@ export default function InsightsScreen() {
 
     try {
       const data = await get<WateringInstructions>(
+        Service.WEATHER,
         `weather/3-day-recommendation?city=${encodeURIComponent(value)}`,
       );
       setWateringData(data);
