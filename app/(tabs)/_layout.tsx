@@ -46,9 +46,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="root-zone"
+        name="soil"
         options={{
-          title: "Root Zone",
+          title: "Soil",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="leaf.fill" color={color} />
           ),
