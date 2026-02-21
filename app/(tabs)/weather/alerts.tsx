@@ -1,6 +1,6 @@
 import DropdownField from "@/components/form/Dropdown";
 import { Ionicons } from "@expo/vector-icons";
-import { get } from "@lib/api-client";
+import { get, Service } from "@lib/api-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
@@ -172,6 +172,7 @@ export default function AlertsScreen() {
 
     try {
       const data = await get<WateringSchedule>(
+        Service.WEATHER,
         `watering/recommendation?city=${encodeURIComponent(value)}`,
       );
       setWateringData(data);
