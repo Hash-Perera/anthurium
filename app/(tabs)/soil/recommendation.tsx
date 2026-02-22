@@ -5,15 +5,15 @@ import { useLocalSearchParams } from "expo-router";
 import { Formik } from "formik";
 import React, { useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
 } from "react-native";
 import * as Yup from "yup";
-import { Colors } from "../../../app-example/constants/theme";
+import { Colors } from "../../constants/theme";
 
 const VarientSchema = Yup.object().shape({
   varient: Yup.string().required("Please select an option"),

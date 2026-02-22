@@ -18,7 +18,7 @@ import {
   View,
 } from "react-native";
 import * as Yup from "yup";
-import { Colors } from "../../../app-example/constants/theme";
+import { Colors } from "../../constants/theme";
 import { cityOptions } from "./forecast";
 
 const CitySchema = Yup.object().shape({
