@@ -1,4 +1,5 @@
 import DropdownField from "@/components/form/Dropdown";
+import Colors from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { get, Service } from "@lib/api-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -18,7 +19,6 @@ import {
   View,
 } from "react-native";
 import * as Yup from "yup";
-import { Colors } from "../../../app-example/constants/theme";
 import { cityOptions } from "./forecast";
 
 const CitySchema = Yup.object().shape({
