@@ -1,4 +1,5 @@
 import DropdownField from "@/components/form/Dropdown";
+import Colors from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { post, Service } from "@lib/api-client";
 import { useLocalSearchParams } from "expo-router";
@@ -13,7 +14,6 @@ import {
   View,
 } from "react-native";
 import * as Yup from "yup";
-import { Colors } from "../../constants/theme";
 
 const VarientSchema = Yup.object().shape({
   varient: Yup.string().required("Please select an option"),
