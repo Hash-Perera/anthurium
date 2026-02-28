@@ -53,19 +53,19 @@ export default function SamisDetails() {
           </Text>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Trend</Text>
-          <Text style={styles.value}>
-            {samis.trend.label} ({samis.trend.change_percent}%)
-          </Text>
-        </View>
+<View style={styles.section}>
+  <Text style={styles.label}>Trend</Text>
+  <Text style={styles.value}>
+    {samis.trend.label}
+  </Text>
+</View>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Risk Level</Text>
-          <Text style={styles.value}>
-            {samis.risk.level} (volatility {samis.risk.volatility})
-          </Text>
-        </View>
+    <View style={styles.section}>
+  <Text style={styles.label}>Risk Level</Text>
+  <Text style={styles.value}>
+    {samis.risk.level}
+  </Text>
+</View>
 
         {/* Smart Selling Recommendation Button */}
         <TouchableOpacity

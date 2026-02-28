@@ -20,7 +20,7 @@ import {
 } from "react-native";
 import { BarChart } from "react-native-chart-kit";
 
-const API_BASE = "http://192.168.1.14:8000";
+const API_BASE = "http://172.20.10.2:8000";
 const SCREEN_W = Dimensions.get("window").width;
 
 type Option = { label: string; value: string };
