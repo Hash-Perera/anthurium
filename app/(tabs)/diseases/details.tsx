@@ -24,6 +24,8 @@ async function fileFromUri(uri: string) {
 }
 
 async function postImage<T>(endpoint: string, uri: string, extra?: Record<string, string>): Promise<T> {
+  if (!API_BASE) throw new Error("API base missing. Check EXPO_PUBLIC_API_BASE_URL_DISEASE in .env");
+
   const form = new FormData();
   form.append("image", await fileFromUri(uri));
   if (extra) Object.entries(extra).forEach(([k, v]) => form.append(k, v));
@@ -45,10 +47,13 @@ async function postImage<T>(endpoint: string, uri: string, extra?: Record<string
 }
 
 async function getJson<T>(endpoint: string): Promise<T> {
+  if (!API_BASE) throw new Error("API base missing. Check EXPO_PUBLIC_API_BASE_URL_DISEASE in .env");
   const res = await fetch(`${API_BASE}${endpoint}`);
   const data = await res.json();
   return data as T;
 }
+
+const nice = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 export default function DiseaseDetails() {
   const params = useLocalSearchParams<{ imageUri?: string; disease?: string }>();
@@ -61,12 +66,19 @@ export default function DiseaseDetails() {
   const [treatment, setTreatment] = useState<TreatmentResp | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const nice = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const isHealthy = (disease || "").toLowerCase() === "healthy";
 
   useEffect(() => {
     const loadAll = async () => {
       try {
         if (!imageUri) throw new Error("No image received. Go back and select an image first.");
+
+        // If healthy: we only show maintain tips (no need to call other endpoints)
+        if (isHealthy) {
+          // Optional: you can also fetch /treatment/healthy from backend if you want
+          setLoading(false);
+          return;
+        }
 
         const s = await postImage<StageResp>("/stage", imageUri);
         setStage(s);
@@ -94,7 +106,7 @@ export default function DiseaseDetails() {
     };
 
     loadAll();
-  }, [imageUri, disease]);
+  }, [imageUri, disease, isHealthy]);
 
   if (!API_BASE) {
     return (
@@ -117,13 +129,37 @@ export default function DiseaseDetails() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Leaf Analysis Result</Text>
 
-      {/* Disease Name */}
       <View style={styles.diseaseBox}>
-        <Text style={styles.label}>Detected Disease</Text>
-        <Text style={styles.diseaseName}>{disease ? nice(disease) : "Not provided"}</Text>
+        {isHealthy ? (
+          <>
+            <Text style={styles.healthyTitle}>This is a healthy leaf</Text>
+            <Text style={styles.healthySub}>No disease detected.</Text>
+
+            <View style={styles.healthyTipsBox}>
+              <Text style={styles.tipsTitle}>Maintain Tips</Text>
+
+              {[
+                "Keep good air circulation around the plant",
+                "Avoid overwatering and water only when needed",
+                "Avoid overhead watering to keep leaves dry",
+                "Keep the plant clean and remove dead leaves",
+                "Monitor weekly for early spots or discoloration",
+              ].map((t, i) => (
+                <Text key={i} style={styles.bullet}>
+                  • {t}
+                </Text>
+              ))}
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.label}>Detected Disease</Text>
+            <Text style={styles.diseaseName}>{disease ? nice(disease) : "Not provided"}</Text>
+          </>
+        )}
       </View>
 
-      {stage && (
+      {!isHealthy && stage && (
         <View style={styles.card}>
           <Text style={styles.label}>Stage</Text>
           <Text style={styles.value}>{nice(stage.stage)}</Text>
@@ -131,15 +167,14 @@ export default function DiseaseDetails() {
         </View>
       )}
 
-      {risk && (
+      {!isHealthy && risk && (
         <View style={styles.card}>
           <Text style={styles.label}>Spread Risk</Text>
           <Text style={styles.value}>{nice(risk.spread_risk.level)}</Text>
-     
         </View>
       )}
 
-      {recovery && (
+      {!isHealthy && recovery && (
         <View style={styles.card}>
           <Text style={styles.label}>Recovery Time</Text>
           <Text style={styles.value}>
@@ -148,7 +183,7 @@ export default function DiseaseDetails() {
         </View>
       )}
 
-      {treatment && (
+      {!isHealthy && treatment && (
         <View style={styles.card}>
           <Text style={styles.label}>Treatment Guidance</Text>
           {treatment.guidance.map((g, i) => (
@@ -166,8 +201,13 @@ const styles = StyleSheet.create({
   container: { padding: 16, gap: 12, backgroundColor: "#fff" },
   loader: { flex: 1, justifyContent: "center", alignItems: "center", padding: 16 },
 
-  title: { fontSize: 20, fontWeight: "800", color: COLORS.primary },
-
+ title: {
+  fontSize: 20,
+  fontWeight: "800",
+  color: COLORS.primary,
+  marginTop: 15,
+  marginBottom: 15,
+},
   diseaseBox: {
     backgroundColor: "#fff",
     borderRadius: 14,
@@ -175,6 +215,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+
+  label: { fontSize: 14, fontWeight: "700", color: COLORS.muted },
   diseaseName: { fontSize: 18, fontWeight: "900", color: COLORS.text, marginTop: 4 },
 
   card: {
@@ -184,10 +226,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  label: { fontSize: 14, fontWeight: "700", color: COLORS.muted },
   value: { fontSize: 18, fontWeight: "800", color: COLORS.text },
   sub: { color: COLORS.muted, marginTop: 4 },
 
   bullet: { marginTop: 6, color: COLORS.text, lineHeight: 20 },
   muted: { color: COLORS.muted, marginTop: 10, textAlign: "center" },
+
+  healthyTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: COLORS.text,
+  },
+  healthySub: {
+    marginTop: 4,
+    color: COLORS.muted,
+    fontWeight: "600",
+  },
+  healthyTipsBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  tipsTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginBottom: 6,
+  },
 });
