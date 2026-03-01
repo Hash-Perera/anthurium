@@ -135,7 +135,7 @@ export default function DiseaseDetails() {
         <View style={styles.card}>
           <Text style={styles.label}>Spread Risk</Text>
           <Text style={styles.value}>{nice(risk.spread_risk.level)}</Text>
-          <Text style={styles.sub}>Score: {risk.spread_risk.score}</Text>
+     
         </View>
       )}
 

@@ -99,29 +99,43 @@ export default function DiseasesIndex() {
     }
   };
 
-  const runPredictDisease = async () => {
-    if (!imageUri) return;
+ const runPredictDisease = async () => {
+  if (!imageUri) return;
 
-    if (!API_BASE) {
-      Alert.alert("API missing", "EXPO_PUBLIC_API_BASE_URL_DISEASE is not set in .env");
-      return;
-    }
+  if (!API_BASE) {
+    Alert.alert("API missing", "EXPO_PUBLIC_API_BASE_URL_DISEASE is not set in .env");
+    return;
+  }
 
-    try {
-      setLoading(true);
-      const resp: any = await postImage<any>("/predict-disease", imageUri);
+  try {
+    setLoading(true);
 
-   
-      setDisease({ disease: resp.disease, confidence: resp.confidence });
-    } catch (e: any) {
-      Alert.alert(
-        "Detection Failed",
-        e?.message || "Unable to detect the leaf disease. Please try again with a clearer image."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    const resp: any = await postImage<any>("/predict-disease", imageUri);
+
+    setDisease({ disease: resp.disease, confidence: resp.confidence });
+
+    // Navigate to details screen
+    router.push({
+      pathname: "/diseases/details",
+      params: {
+        imageUri: imageUri ?? "",
+        disease: resp.disease,
+      },
+    });
+
+    // 🧹 CLEAR ALL INPUTS AFTER SUCCESS
+    setImageUri(null);
+    setDisease(null);
+
+  } catch (e: any) {
+    Alert.alert(
+      "Detection Failed",
+      e?.message || "Unable to detect the leaf disease. Please try again with a clearer image."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
