@@ -22,11 +22,13 @@ async function postImage<T>(endpoint: string, uri: string): Promise<T> {
     body: form,
   });
 
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(txt || `Request failed: ${res.status}`);
+  const data = await res.json();
+
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Something went wrong while detecting disease.");
   }
-  return res.json();
+
+  return data;
 }
 
 const niceName = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -97,7 +99,7 @@ export default function DiseasesIndex() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Anthurium Leaf Disease Detection</Text>
-      <Text style={styles.sub}>API: {API_BASE || "-"}</Text>
+     
 
       <View style={styles.card}>
         <Text style={styles.h}>1) Select Leaf Image</Text>
