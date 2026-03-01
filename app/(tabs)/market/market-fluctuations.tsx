@@ -1,375 +1,493 @@
 // market-fluctuations.tsx
-// Works with your current backend (dayfirst=True)
-// Sends dates as DD-MM-YYYY to avoid parsing issues
-//
-// Install:
-//   npm i react-native-chart-kit react-native-svg
-//   npm i @react-native-community/datetimepicker
+
 
 import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { BarChart } from "react-native-chart-kit";
 
-const API_BASE = "http://172.20.10.2:8000";
-const SCREEN_W = Dimensions.get("window").width;
-
-type Option = { label: string; value: string };
-
-type FluctuationRow = {
-  date: string; // "YYYY-MM-DD"
-  price: number | null;
-  price_diff: number;
-  price_pct_change: number;
-  fluctuation_score: number;
-  is_fluctuation: number;
-};
+const API_BASE = "http://192.168.1.14:8000";
 
 type FluctuationResponse = {
-  summary: {
-    start_date: string;
-    end_date: string;
-    shop: string;
-    variety: string;
-    size: string;
-    rows: number;
-    fluctuations: number;
-    message?: string;
+  filters?: {
+    start_date?: string;
+    end_date?: string;
+    variety?: string;
+    shop?: string | null;
+    size?: string | null;
   };
-  rows: FluctuationRow[];
+  points?: number;
+  image_base64_png?: string;
+  detail?: string;
 };
 
-// IMPORTANT for your backend (dayfirst=True): send DD-MM-YYYY
-function fmtDayFirst(d: Date) {
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function formatDDMMYYYY(d: Date) {
+  const dd = pad2(d.getDate());
+  const mm = pad2(d.getMonth() + 1);
   const yyyy = d.getFullYear();
   return `${dd}-${mm}-${yyyy}`;
 }
 
-// for labels only
-function fmtLabel(d: string) {
-  // input row.date usually "YYYY-MM-DD"
-  if (!d) return "";
-  const parts = d.split("-");
-  if (parts.length === 3) return `${parts[1]}/${parts[2]}`; // MM/DD
+function parseDDMMYYYY(s: string) {
+  const parts = s.trim().split("-");
+  if (parts.length !== 3) return null;
+  const dd = Number(parts[0]);
+  const mm = Number(parts[1]);
+  const yyyy = Number(parts[2]);
+  if (!dd || !mm || !yyyy) return null;
+  const d = new Date(yyyy, mm - 1, dd);
+  if (Number.isNaN(d.getTime())) return null;
+  // validate roundtrip (avoid invalid dates like 31-02-2024)
+  if (d.getFullYear() !== yyyy || d.getMonth() !== mm - 1 || d.getDate() !== dd) return null;
   return d;
 }
 
-const SHOP_OPTIONS: Option[] = [
-  { label: "Anthurium Flower Garden", value: "anthurium flower garden" },
-  { label: "Horana Anthurium", value: "horana anthurium" },
-  { label: "Oscar Anthurium", value: "oscar anthurium" },
-];
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
 
-const VARIETY_OPTIONS: Option[] = [
-  { label: "Baby Pink", value: "baby pink" },
-  { label: "Black Cardinal", value: "black cardinal" },
-  { label: "Lady Jane", value: "lady jane" },
-  { label: "Red", value: "red" },
-  { label: "Flash", value: "flash" },
-];
+function addDays(d: Date, days: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + days);
+  return x;
+}
 
-const SIZE_OPTIONS: Option[] = [
-  { label: "Small", value: "small" },
-  { label: "Medium", value: "medium" },
-  { label: "Large", value: "large" },
-];
+function clampEndDate(start: Date, end: Date) {
+  // ensure end >= start
+  if (startOfDay(end).getTime() < startOfDay(start).getTime()) return start;
+  return end;
+}
 
-export default function MarketFluctuations() {
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+export default function MarketFluctuationsScreen() {
+  const [startDate, setStartDate] = useState("01-09-2024");
+  const [endDate, setEndDate] = useState("31-10-2024");
+  const [variety, setVariety] = useState("black cardinal");
+  const [shop, setShop] = useState("");
+  const [size, setSize] = useState("");
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
-  const [shop, setShop] = useState<Option | null>(null);
-  const [variety, setVariety] = useState<Option | null>(null);
-  const [size, setSize] = useState<Option | null>(null);
-
-  const [openDropdown, setOpenDropdown] = useState<"shop" | "variety" | "size" | null>(null);
-
   const [loading, setLoading] = useState(false);
-  const [resp, setResp] = useState<FluctuationResponse | null>(null);
+  const [imgBase64, setImgBase64] = useState<string | null>(null);
+  const [points, setPoints] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const validate = () => {
-    if (!startDate || !endDate || !shop || !variety || !size) {
-      Alert.alert("Missing data", "Please fill all fields");
-      return false;
-    }
-    if (endDate.getTime() < startDate.getTime()) {
-      Alert.alert("Invalid date range", "End date must be after start date");
-      return false;
-    }
-    return true;
+  const endpoint = useMemo(() => `${API_BASE.replace(/\/$/, "")}/fluctuations`, []);
+
+  const startDateObj = useMemo(() => parseDDMMYYYY(startDate) ?? startOfDay(new Date()), [startDate]);
+  const endDateObj = useMemo(() => parseDDMMYYYY(endDate) ?? startOfDay(new Date()), [endDate]);
+
+  const todayObj = useMemo(() => startOfDay(new Date()), []);
+  const maxStartDate = todayObj;
+  const maxEndDate = todayObj;
+  const minEndDate = startDateObj;
+
+  const applyPreset = (daysBack: number) => {
+    const end = startOfDay(new Date());
+    const start = addDays(end, -daysBack);
+    setStartDate(formatDDMMYYYY(start));
+
+    // keep end valid
+    const newEnd = clampEndDate(start, end);
+    setEndDate(formatDDMMYYYY(newEnd));
   };
 
-  const fetchFluctuations = async () => {
-    if (!validate()) return;
+  const onFetch = async () => {
+    setError(null);
+    setImgBase64(null);
+    setPoints(null);
 
-    setLoading(true);
-    setResp(null);
+    const sdObj = parseDDMMYYYY(startDate);
+    const edObj = parseDDMMYYYY(endDate);
+    const v = variety.trim();
 
-    // Build payload exactly how backend expects
-    const payload = {
-      start_date: fmtDayFirst(startDate as Date),
-      end_date: fmtDayFirst(endDate as Date),
-      shop: shop!.value,
-      variety: variety!.value,
-      size: size!.value,
+    if (!sdObj || !edObj || !v) {
+      Alert.alert("Missing or invalid fields", "Please pick valid Start Date, End Date, and enter Variety.");
+      return;
+    }
+
+    // enforce end >= start
+    if (startOfDay(edObj).getTime() < startOfDay(sdObj).getTime()) {
+      Alert.alert("Invalid range", "End date cannot be before Start date.");
+      return;
+    }
+
+    const payload: any = {
+      start_date: formatDDMMYYYY(sdObj),
+      end_date: formatDDMMYYYY(edObj),
+      variety: v,
     };
+    if (shop.trim()) payload.shop = shop.trim();
+    if (size.trim()) payload.size = size.trim();
 
     try {
-      const res = await fetch(`${API_BASE}/fluctuations`, {
+      setLoading(true);
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const data: FluctuationResponse = await res.json().catch(() => ({} as any));
 
       if (!res.ok) {
-        const msg = data?.detail ? String(data.detail) : "Request failed";
-        throw new Error(msg);
+        const msg = data?.detail || `Request failed (${res.status})`;
+        setError(msg);
+        return;
       }
 
-      setResp(data as FluctuationResponse);
-      setOpenDropdown(null);
+      if (!data.image_base64_png) {
+        setError("No image returned from backend.");
+        return;
+      }
+
+      setImgBase64(data.image_base64_png);
+      setPoints(typeof data.points === "number" ? data.points : null);
     } catch (e: any) {
-      Alert.alert("Error", e?.message ? String(e.message) : "Something went wrong");
+      setError(e?.message || "Network error");
     } finally {
       setLoading(false);
     }
   };
 
-  const chartData = useMemo(() => {
-    const rows = resp?.rows ?? [];
-    if (!rows.length) return null;
-
-    // limit to last 60 points to keep chart fast
-    const sliced = rows.slice(-60);
-
-    const labels = sliced.map((r) => fmtLabel(r.date));
-    const values = sliced.map((r) => {
-      const n = Number(r?.price_diff);
-      return Number.isFinite(n) ? Math.abs(n) : 0;
-    });
-
-    return { labels, datasets: [{ data: values }] };
-  }, [resp]);
-
-  const summaryText = useMemo(() => {
-    if (!resp?.summary) return "";
-    if (resp.summary.message) return resp.summary.message;
-    return `Rows: ${resp.summary.rows} | Fluctuations: ${resp.summary.fluctuations}`;
-  }, [resp]);
+  const imgUri = imgBase64 ? `data:image/png;base64,${imgBase64}` : null;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Market Fluctuations</Text>
-
-      {/* Start date */}
-      <Text style={styles.label}>Start Date</Text>
-      <TouchableOpacity
-        style={styles.input}
-        onPress={() => {
-          setShowStartPicker(true);
-          setOpenDropdown(null);
-        }}
-      >
-        <Text style={styles.inputText}>
-          {startDate ? fmtDayFirst(startDate) : "Select start date"}
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: "#fff" }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.subtitle}>
+          Enter a date range and Anthurium variety to generate a price fluctuation graph.
         </Text>
-      </TouchableOpacity>
 
-      {showStartPicker && (
-        <DateTimePicker
-          value={startDate ?? new Date()}
-          mode="date"
-          onChange={(_, d) => {
-            setShowStartPicker(false);
-            if (d) setStartDate(d);
-          }}
-        />
-      )}
 
-      {/* End date */}
-      <Text style={styles.label}>End Date</Text>
-      <TouchableOpacity
-        style={styles.input}
-        onPress={() => {
-          setShowEndPicker(true);
-          setOpenDropdown(null);
-        }}
-      >
-        <Text style={styles.inputText}>
-          {endDate ? fmtDayFirst(endDate) : "Select end date"}
-        </Text>
-      </TouchableOpacity>
-
-      {showEndPicker && (
-        <DateTimePicker
-          value={endDate ?? new Date()}
-          mode="date"
-          onChange={(_, d) => {
-            setShowEndPicker(false);
-            if (d) setEndDate(d);
-          }}
-        />
-      )}
-
-      {/* Variety */}
-      <Text style={styles.label}>Flower Variety</Text>
-      <TouchableOpacity
-        style={styles.input}
-        onPress={() => {
-          setOpenDropdown(openDropdown === "variety" ? null : "variety");
-        }}
-      >
-        <Text style={styles.inputText}>{variety?.label || "Select variety"}</Text>
-      </TouchableOpacity>
-      {openDropdown === "variety" && (
-        <View style={styles.dropdown}>
-          {VARIETY_OPTIONS.map((o) => (
-            <TouchableOpacity
-              key={o.value}
-              style={styles.option}
-              onPress={() => {
-                setVariety(o);
-                setOpenDropdown(null);
-              }}
-            >
-              <Text>{o.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* Size */}
-      <Text style={styles.label}>Flower Size</Text>
-      <TouchableOpacity
-        style={styles.input}
-        onPress={() => setOpenDropdown(openDropdown === "size" ? null : "size")}
-      >
-        <Text style={styles.inputText}>{size?.label || "Select size"}</Text>
-      </TouchableOpacity>
-      {openDropdown === "size" && (
-        <View style={styles.dropdown}>
-          {SIZE_OPTIONS.map((o) => (
-            <TouchableOpacity
-              key={o.value}
-              style={styles.option}
-              onPress={() => {
-                setSize(o);
-                setOpenDropdown(null);
-              }}
-            >
-              <Text>{o.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* Shop */}
-      <Text style={styles.label}>Flower Shop</Text>
-      <TouchableOpacity
-        style={styles.input}
-        onPress={() => setOpenDropdown(openDropdown === "shop" ? null : "shop")}
-      >
-        <Text style={styles.inputText}>{shop?.label || "Select shop"}</Text>
-      </TouchableOpacity>
-      {openDropdown === "shop" && (
-        <View style={styles.dropdown}>
-          {SHOP_OPTIONS.map((o) => (
-            <TouchableOpacity
-              key={o.value}
-              style={styles.option}
-              onPress={() => {
-                setShop(o);
-                setOpenDropdown(null);
-              }}
-            >
-              <Text>{o.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* Submit */}
-      <TouchableOpacity
-        style={[styles.submitButton, loading && { opacity: 0.6 }]}
-        disabled={loading}
-        onPress={fetchFluctuations}
-      >
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Show Chart</Text>}
-      </TouchableOpacity>
-
-      {!!summaryText && <Text style={styles.summary}>{summaryText}</Text>}
-
-      {/* Chart */}
-      {!loading && chartData && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Price change magnitude (|price_diff|)</Text>
-          <BarChart
-            data={chartData}
-            width={SCREEN_W - 32}
-            height={260}
-            fromZero
-            showValuesOnTopOfBars={false}
-            yAxisLabel=""
-            yAxisSuffix=""
-            chartConfig={{
-              backgroundGradientFrom: "#ffffff",
-              backgroundGradientTo: "#ffffff",
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(0,0,0,${opacity})`,
-              labelColor: (opacity = 1) => `rgba(0,0,0,${opacity})`,
-              barPercentage: 0.7,
-              propsForBackgroundLines: { strokeWidth: 0 },
-            }}
-            style={{ borderRadius: 12 }}
-          />
-        </View>
-      )}
+          <Text style={styles.label}>Start Date</Text>
+          <TouchableOpacity
+            style={styles.dateBtn}
+            onPress={() => setShowStartPicker(true)}
+            disabled={loading}
+          >
+            <Text style={styles.dateText}>{startDate}</Text>
+          </TouchableOpacity>
 
-      {!loading && resp?.summary?.message && resp.summary.rows === 0 && (
-        <Text style={{ marginTop: 12 }}>{resp.summary.message}</Text>
-      )}
-    </ScrollView>
+          {showStartPicker ? (
+            <DateTimePicker
+              value={startDateObj}
+              mode="date"
+              display={Platform.OS === "ios" ? "spinner" : "default"}
+              maximumDate={maxStartDate}
+              onChange={(event, selectedDate) => {
+                if (Platform.OS !== "ios") setShowStartPicker(false);
+                if ((event as any).type === "dismissed") return;
+
+                const picked = selectedDate ? startOfDay(selectedDate) : startDateObj;
+                setStartDate(formatDDMMYYYY(picked));
+
+                // auto-fix end date if it becomes invalid
+                const fixedEnd = clampEndDate(picked, endDateObj);
+                setEndDate(formatDDMMYYYY(fixedEnd));
+              }}
+            />
+          ) : null}
+
+          {Platform.OS === "ios" && showStartPicker ? (
+            <TouchableOpacity style={styles.pickerDoneBtn} onPress={() => setShowStartPicker(false)}>
+              <Text style={styles.pickerDoneText}>Done</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          <Text style={styles.label}>End Date</Text>
+          <TouchableOpacity
+            style={styles.dateBtn}
+            onPress={() => setShowEndPicker(true)}
+            disabled={loading}
+          >
+            <Text style={styles.dateText}>{endDate}</Text>
+          </TouchableOpacity>
+
+          {showEndPicker ? (
+            <DateTimePicker
+              value={endDateObj}
+              mode="date"
+              display={Platform.OS === "ios" ? "spinner" : "default"}
+              minimumDate={minEndDate}
+              maximumDate={maxEndDate}
+              onChange={(event, selectedDate) => {
+                if (Platform.OS !== "ios") setShowEndPicker(false);
+                if ((event as any).type === "dismissed") return;
+
+                const picked = selectedDate ? startOfDay(selectedDate) : endDateObj;
+                const fixed = clampEndDate(startDateObj, picked);
+                setEndDate(formatDDMMYYYY(fixed));
+              }}
+            />
+          ) : null}
+
+          {Platform.OS === "ios" && showEndPicker ? (
+            <TouchableOpacity style={styles.pickerDoneBtn} onPress={() => setShowEndPicker(false)}>
+              <Text style={styles.pickerDoneText}>Done</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          <Text style={styles.label}>Variety</Text>
+          <TextInput
+            value={variety}
+            onChangeText={setVariety}
+            placeholder="black cardinal"
+            style={styles.input}
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.optional}>Optional filters</Text>
+
+          <Text style={styles.label}>Shop (optional)</Text>
+          <TextInput
+            value={shop}
+            onChangeText={setShop}
+            placeholder="horana anthurium"
+            style={styles.input}
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.label}>Size (optional)</Text>
+          <TextInput
+            value={size}
+            onChangeText={setSize}
+            placeholder="small"
+            style={styles.input}
+            autoCapitalize="none"
+          />
+
+          <TouchableOpacity style={styles.primaryBtn} onPress={onFetch} disabled={loading}>
+            {loading ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator />
+                <Text style={styles.primaryBtnText}>Generating...</Text>
+              </View>
+            ) : (
+              <Text style={styles.primaryBtnText}>Generate Graph</Text>
+            )}
+          </TouchableOpacity>
+
+
+          {error ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorTitle}>Error</Text>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {imgUri ? (
+          <View style={styles.resultCard}>
+            <View style={styles.resultHeader}>
+              <Text style={styles.resultTitle}>Fluctuation Graph</Text>
+              
+            </View>
+
+            <Image source={{ uri: imgUri }} style={styles.image} resizeMode="contain" />
+
+       
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No graph yet. Generate one using the form above.</Text>
+          </View>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: "#fff", flexGrow: 1 },
-  title: { fontSize: 22, fontWeight: "600", textAlign: "center", marginBottom: 16 },
+  container: {
+    padding: 16,
+    paddingBottom: 28,
+    gap: 14,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: "#333",
+    lineHeight: 18,
+  },
 
-  label: { marginTop: 14, marginBottom: 6, fontWeight: "500" },
+  presetRow: {
+    flexDirection: "row",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  presetBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#111",
+    backgroundColor: "#fff",
+  },
+  presetBtnGhost: {
+    borderColor: "#999",
+  },
+  presetText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  card: {
+    borderWidth: 1,
+    borderColor: "#E6E6E6",
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+    backgroundColor: "#fff",
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  optional: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  dateBtn: {
+    borderWidth: 1,
+    borderColor: "#DADADA",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: "#fff",
+  },
+  dateText: {
+    fontSize: 14,
+  },
+  pickerDoneBtn: {
+    alignSelf: "flex-end",
+    marginTop: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#111",
+  },
+  pickerDoneText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "#DADADA",
     borderRadius: 10,
-    padding: 14,
-    backgroundColor: "#fafafa",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: "#fff",
   },
-  inputText: { color: "#333" },
+  primaryBtn: {
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#111",
+  },
+  primaryBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  loadingRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+  },
+  apiHint: {
+    marginTop: 6,
+    fontSize: 11,
+    color: "#666",
+  },
 
-  dropdown: { borderWidth: 1, borderColor: "#ddd", borderRadius: 10, marginTop: 6, backgroundColor: "#fff" },
-  option: { padding: 14, borderBottomWidth: 1, borderBottomColor: "#eee" },
+  errorBox: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#f2c0c0",
+    backgroundColor: "#fff7f7",
+    gap: 6,
+  },
+  errorTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  errorText: {
+    fontSize: 12,
+    color: "#333",
+  },
 
-  submitButton: { marginTop: 26, backgroundColor: "#B22222", padding: 16, borderRadius: 12, alignItems: "center" },
-  submitText: { color: "#fff", fontWeight: "600" },
-
-  summary: { marginTop: 10, fontSize: 13, opacity: 0.85 },
-
-  card: { marginTop: 16, backgroundColor: "#fff", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#eee" },
-  cardTitle: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
+  resultCard: {
+    borderWidth: 1,
+    borderColor: "#E6E6E6",
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: "#fff",
+    gap: 10,
+  },
+  resultHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+  },
+  resultTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  pointsText: {
+    fontSize: 12,
+    color: "#555",
+  },
+  image: {
+    width: "100%",
+    height: 260,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
+    backgroundColor: "#fff",
+  },
+  note: {
+    fontSize: 12,
+    color: "#666",
+    lineHeight: 16,
+  },
+  emptyState: {
+    padding: 18,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E6E6E6",
+    backgroundColor: "#fff",
+  },
+  emptyText: {
+    fontSize: 12,
+    color: "#666",
+  },
 });
