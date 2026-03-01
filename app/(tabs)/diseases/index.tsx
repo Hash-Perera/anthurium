@@ -165,7 +165,7 @@ export default function DiseasesIndex() {
         {disease && (
           <View style={styles.resultBox}>
             <Text style={styles.predicted}>{niceName(disease.disease)}</Text>
-            <Text style={styles.confidence}>Confidence: {(disease.confidence * 100).toFixed(1)}%</Text>
+           
 
             <TouchableOpacity
               style={styles.moreBtn}
