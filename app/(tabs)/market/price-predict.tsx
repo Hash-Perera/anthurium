@@ -44,7 +44,7 @@ export default function PricePredict() {
     try {
       setLoading(true);
       const response = await fetch(
-        "http://172.20.10.2:8000/get_price_per_flower",
+        "http://192.168.1.14:8000/get_price_per_flower",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
