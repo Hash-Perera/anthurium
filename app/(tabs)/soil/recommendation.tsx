@@ -1,4 +1,5 @@
 import DropdownField from "@/components/form/Dropdown";
+import { SuitabilityCard } from "@/components/soil/SuitabilityCard";
 import Colors from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { post, Service } from "@lib/api-client";
@@ -26,6 +27,29 @@ export const varientOptions = [
   { label: "Crystal Anthurium", value: "Crystal Anthurium" },
 ];
 
+const parseDeviations = (deviations: string[]) => {
+  return deviations.map((deviation) => {
+    // Parse deviation strings like "Soil Moisture deviation: +56.5% High"
+    const match = deviation.match(
+      /(.+?):\s*([-+]?\d+\.?\d*%?)\s*(?:\(?(High|Low|Moderate)\)?)?/i,
+    );
+
+    if (match) {
+      return {
+        label: match[1].trim(),
+        value: match[2].trim(),
+        status: (match[3] || "Moderate") as "High" | "Low" | "Moderate",
+      };
+    }
+
+    return {
+      label: deviation,
+      value: "N/A",
+      status: "Moderate" as const,
+    };
+  });
+};
+
 type SoilData = {
   soilMoisture: number;
   humidity: number;
@@ -39,6 +63,8 @@ type SoilData = {
 type Soil = {
   issues: string[];
   recommendations: string[];
+  deviations: string[];
+  suitability_score: number;
 };
 
 export default function Recommendation() {
@@ -49,6 +75,8 @@ export default function Recommendation() {
   const [soil, setSoil] = useState<Soil>({
     issues: [],
     recommendations: [],
+    deviations: [],
+    suitability_score: 0,
   });
 
   // Parse soil data from query params
@@ -141,6 +169,13 @@ export default function Recommendation() {
         </View>
       ) : (
         <>
+          {soil.suitability_score > 0 && (
+            <SuitabilityCard
+              score={soil.suitability_score}
+              deviations={parseDeviations(soil.deviations)}
+            />
+          )}
+
           {soil.issues.length > 0 && (
             <View style={styles.issuesContainer}>
               <View style={styles.sectionHeader}>

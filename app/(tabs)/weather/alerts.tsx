@@ -19,6 +19,7 @@ import {
   View,
 } from "react-native";
 import * as Yup from "yup";
+
 import { cityOptions } from "./forecast";
 
 const CitySchema = Yup.object().shape({
