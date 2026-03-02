@@ -49,60 +49,66 @@ export default function SamisDetails() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Sustainable Report</Text>
-        <Text style={styles.subtitle}>SAMIS based market insights for your prediction</Text>
-      </View>
-
-      <View style={styles.card}>
-        {/* Price */}
-        <View style={styles.priceBox}>
-          <Text style={styles.mutedLabel}>Predicted Price</Text>
-          <Text style={styles.price}>Rs. {Number(price).toFixed(2)}</Text>
-        </View>
-
-        {/* Score */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SAMIS Score</Text>
-
-          <View style={[styles.pill, { borderColor: PINK.border }]}>
-            <View style={[styles.dot, { backgroundColor: toneColor }]} />
-            <Text style={styles.pillText}>
-              {samis.samis_score} • {samis.sustainability}
-            </Text>
-          </View>
-
-          <View style={styles.metricGrid}>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Trend</Text>
-              <Text style={styles.metricValue}>{samis.trend.label}</Text>
-          
-            </View>
-
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Risk Level</Text>
-              <Text style={styles.metricValue}>{samis.risk.level}</Text>
-             
-            </View>
-          </View>
-        </View>
-
-        {/* Recommendation */}
-        <TouchableOpacity style={styles.primaryBtn} onPress={getSellingRecommendation} activeOpacity={0.9}>
-          <Text style={styles.primaryBtnText}>Smart Selling Recommendation</Text>
-        </TouchableOpacity>
-
-        {recommendation ? (
-          <View style={styles.recoBox}>
-            <Text style={styles.recoText}>{recommendation}</Text>
-          </View>
-        ) : (
-          <Text style={styles.helperText}>
-            Tap the button to get a quick suggestion based on trend and risk.
+      <View style={styles.page}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Sustainable Report</Text>
+          <Text style={styles.subtitle}>
+            SAMIS based market insights for your prediction
           </Text>
-        )}
+        </View>
 
- 
+        <View style={styles.card}>
+          {/* Price */}
+          <View style={styles.priceBox}>
+            <Text style={styles.mutedLabel}>Predicted Price</Text>
+            <Text style={styles.price}>Rs. {Number(price).toFixed(2)}</Text>
+          </View>
+
+          {/* Score */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>SAMIS Score</Text>
+
+            <View style={[styles.pill, { borderColor: PINK.border }]}>
+              <View style={[styles.dot, { backgroundColor: toneColor }]} />
+              <Text style={styles.pillText}>
+                {samis.samis_score} • {samis.sustainability}
+              </Text>
+            </View>
+
+            <View style={styles.metricGrid}>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Trend</Text>
+                <Text style={styles.metricValue}>{samis.trend.label}</Text>
+              </View>
+
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Risk Level</Text>
+                <Text style={styles.metricValue}>{samis.risk.level}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Recommendation */}
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            onPress={getSellingRecommendation}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.primaryBtnText}>
+              Smart Selling Recommendation
+            </Text>
+          </TouchableOpacity>
+
+          {recommendation ? (
+            <View style={styles.recoBox}>
+              <Text style={styles.recoText}>{recommendation}</Text>
+            </View>
+          ) : (
+            <Text style={styles.helperText}>
+              Tap the button to get a quick suggestion based on trend and risk.
+            </Text>
+          )}
+        </View>
       </View>
     </ScrollView>
   );
@@ -119,16 +125,22 @@ const PINK = {
 };
 
 const styles = StyleSheet.create({
+  // ✅ Take the whole screen height and remove center alignment
   container: {
-    padding: 16,
-    backgroundColor: PINK.white,
     flexGrow: 1,
-    justifyContent: "center",
+    backgroundColor: PINK.white,
+  },
+
+  // ✅ Outer wrapper that fills the full page
+  page: {
+    flex: 1,
+    padding: 16,
+    minHeight: "100%",
   },
 
   header: {
-    paddingTop: 6,
-    paddingBottom: 12,
+    paddingTop: 10,
+    paddingBottom: 14,
     gap: 6,
     alignItems: "center",
   },
@@ -145,10 +157,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
+  // ✅ Card takes full width and looks bigger
   card: {
+    flex: 1,
+    width: "100%",
     backgroundColor: PINK.white,
     borderRadius: 18,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: PINK.border,
     shadowColor: "#000000",
@@ -163,7 +178,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PINK.border,
     borderRadius: 16,
-    paddingVertical: 14,
+    paddingVertical: 18,
     paddingHorizontal: 14,
     alignItems: "center",
   },
@@ -173,20 +188,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   price: {
-    marginTop: 6,
-    fontSize: 34,
+    marginTop: 8,
+    fontSize: 36,
     fontWeight: "800",
     color: PINK.primary,
   },
 
   section: {
-    marginTop: 14,
+    marginTop: 18,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: "800",
     color: PINK.text,
-    marginBottom: 10,
+    marginBottom: 12,
   },
 
   pill: {
@@ -196,7 +211,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: PINK.white,
     borderRadius: 999,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 12,
     alignSelf: "flex-start",
   },
@@ -212,7 +227,7 @@ const styles = StyleSheet.create({
   },
 
   metricGrid: {
-    marginTop: 12,
+    marginTop: 14,
     flexDirection: "row",
     gap: 10,
   },
@@ -222,7 +237,9 @@ const styles = StyleSheet.create({
     borderColor: PINK.border,
     backgroundColor: PINK.white,
     borderRadius: 16,
-    padding: 12,
+    padding: 14,
+    minHeight: 86,
+    justifyContent: "center",
   },
   metricLabel: {
     color: PINK.muted,
@@ -230,22 +247,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   metricValue: {
-    marginTop: 6,
+    marginTop: 8,
     color: PINK.text,
     fontWeight: "700",
     fontSize: 16,
   },
-  metricSub: {
-    marginTop: 6,
-    color: PINK.muted,
-    fontWeight: "500",
-    fontSize: 12,
-  },
 
   primaryBtn: {
-    marginTop: 16,
+    marginTop: 18,
     backgroundColor: PINK.primary,
-    paddingVertical: 14,
+    paddingVertical: 15,
     borderRadius: 14,
     alignItems: "center",
     shadowColor: "#000000",
@@ -261,7 +272,7 @@ const styles = StyleSheet.create({
   },
 
   helperText: {
-    marginTop: 10,
+    marginTop: 12,
     color: PINK.muted,
     textAlign: "center",
     lineHeight: 18,
@@ -269,12 +280,12 @@ const styles = StyleSheet.create({
   },
 
   recoBox: {
-    marginTop: 12,
+    marginTop: 14,
     backgroundColor: PINK.light,
     borderWidth: 1,
     borderColor: PINK.border,
     borderRadius: 14,
-    padding: 12,
+    padding: 14,
     alignItems: "center",
   },
   recoText: {
@@ -283,20 +294,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 14,
     lineHeight: 20,
-  },
-
-  ghostBtn: {
-    marginTop: 12,
-    paddingVertical: 12,
-    borderRadius: 14,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: PINK.border,
-    backgroundColor: PINK.white,
-  },
-  ghostBtnText: {
-    color: PINK.dark,
-    fontWeight: "700",
-    fontSize: 14,
   },
 });
