@@ -7,8 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  KeyboardAvoidingView,
-  Platform,
+  KeyboardAvoidingView, Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,7 +16,7 @@ import {
   View,
 } from "react-native";
 
-const API_BASE = "http://192.168.1.14:8000";
+const API_BASE = "http://172.20.10.2:8000";
 
 type FluctuationResponse = {
   filters?: {
