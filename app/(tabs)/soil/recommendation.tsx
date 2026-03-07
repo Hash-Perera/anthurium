@@ -21,10 +21,10 @@ const VarientSchema = Yup.object().shape({
 });
 
 export const varientOptions = [
-  { label: "Flamingo Flower", value: "Flamingo Flower" },
-  { label: "Pigtail Flower", value: "Pigtail Flower" },
-  { label: "Black Velvet", value: "Black Velvet" },
-  { label: "Crystal Anthurium", value: "Crystal Anthurium" },
+  { label: "Baby Pink", value: "Flamingo Flower" },
+  { label: "Black Cardinal", value: "Pigtail Flower" },
+  { label: "Flash", value: "Black Velvet" },
+  { label: "Lady Jane", value: "Crystal Anthurium" },
 ];
 
 const parseDeviations = (deviations: string[]) => {
